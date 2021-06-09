@@ -3,12 +3,10 @@ from functools import lru_cache
 from re import match
 from sys import stdin
 
-TRANSITIONS = dict()
-REACHABLE_TRANSITIONS = dict()
-LIST_OF_STATES = list()
-SAME_STATES = dict()
 RELATIONS = defaultdict(list)
 ARRAY = defaultdict(lambda: False)
+LIST_OF_STATES = list()
+TRANSITIONS = dict()
 
 
 class Utils:
@@ -118,14 +116,15 @@ def minimize():
     for a in REACHABLE_STATES:
         for b in REACHABLE_STATES:
             if (a != b) and (
-                    a not in ACCEPTABLE_STATES and b in ACCEPTABLE_STATES or a in ACCEPTABLE_STATES and
-                    b not in ACCEPTABLE_STATES):
+                    a not in ACCEPTABLE_STATES and b in ACCEPTABLE_STATES
+                    or a in ACCEPTABLE_STATES and b not in ACCEPTABLE_STATES):
                 ARRAY[(a, b)] = True
 
     for a in REACHABLE_STATES:
         for b in REACHABLE_STATES:
-            if a in ACCEPTABLE_STATES and b in ACCEPTABLE_STATES or not (a in ACCEPTABLE_STATES) and not (
-                    b in ACCEPTABLE_STATES):
+            if a in ACCEPTABLE_STATES and b in ACCEPTABLE_STATES \
+                    or not (a in ACCEPTABLE_STATES) \
+                    and not (b in ACCEPTABLE_STATES):
                 marked = False
 
                 for c in SYMBOLS:
@@ -163,29 +162,29 @@ def minimize():
     return result
 
 
-""" -------- Driver code -------- """
-data = [line.strip() for line in stdin.readlines()]
+if __name__ == '__main__':
+    data = [line.strip() for line in stdin.readlines()]
 
-ALL_STATES = data[0].split(',')  # 1. redak: skup stanja
-SYMBOLS = data[1].split(',')  # 2. redak: skup simbola
-SYMBOLS.sort()
-ACCEPTABLE_STATES = data[2].split(',')  # 3. redak: skup prihvatljivih stanja
-START_STATE = data[3]  # 4. redak: početno stanje
-Utils.get_transitions(data[4:])  # 5.+ redak: funkcije prijelaza
-REACHABLE_STATES = find_reachable_states()
+    ALL_STATES = data[0].split(',')  # 1. redak: skup stanja
+    SYMBOLS = data[1].split(',')  # 2. redak: skup simbola
+    SYMBOLS.sort()
+    ACCEPTABLE_STATES = data[2].split(',')  # 3.redak: skup prihvatljivih stanja
+    START_STATE = data[3]  # 4. redak: početno stanje
+    Utils.get_transitions(data[4:])  # 5.+ redak: funkcije prijelaza
+    REACHABLE_STATES = find_reachable_states()
 
-for state in ACCEPTABLE_STATES:
-    if state in REACHABLE_STATES:
-        LIST_OF_STATES.append(state)
+    for state in ACCEPTABLE_STATES:
+        if state in REACHABLE_STATES:
+            LIST_OF_STATES.append(state)
 
-LIST_OF_STATES.sort()
-REACHABLE_TRANSITIONS = find_reachable_transitions()
-SAME_STATES = minimize()
+    LIST_OF_STATES.sort()
+    REACHABLE_TRANSITIONS = find_reachable_transitions()
+    SAME_STATES = minimize()
 
-new_states = Utils.swap_list(SAME_STATES, REACHABLE_STATES)
-final_start = Utils.swap_list(SAME_STATES, [START_STATE])[0]
-final_states = Utils.swap_list(SAME_STATES, LIST_OF_STATES)
-final_transition_tbl = Utils.swap_dict(SAME_STATES)
+    new_states = Utils.swap_list(SAME_STATES, REACHABLE_STATES)
+    final_start = Utils.swap_list(SAME_STATES, [START_STATE])[0]
+    final_states = Utils.swap_list(SAME_STATES, LIST_OF_STATES)
+    final_transition_tbl = Utils.swap_dict(SAME_STATES)
 
-Utils.print_out(new_states, SYMBOLS, final_states,
-                final_start, final_transition_tbl)
+    Utils.print_out(new_states, SYMBOLS, final_states,
+                    final_start, final_transition_tbl)
