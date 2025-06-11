@@ -1,108 +1,104 @@
-from re import match
-from sys import stdin
+import sys
+import re
 
-TRANSITIONS = dict()
-
-
-class Utils:
-    """
-    Helper class, used for formatted reading and printing to standard input.
-    """
-
-    @staticmethod
-    def get_input_data(input_str):
-        """Return formatted array of alphabet symbols."""
-        tmp = input_str.split("|")
-        return [tmp[i].split(",") for i in range(len(tmp))]
-
-    @staticmethod
-    def get_transitions(input_str):
-        """Return formatted `dict` of transition functions (delta)."""
-        for line in input_str:
-            r = match(r'(.*),(.*)->(.*)', line)
-            if r.group(3) == '#':
-                continue
-
-            trenutno_stanje = r.group(1)
-            ulazni_simbol = r.group(2)
-            sljedece_stanje = r.group(3).split(",")
-            TRANSITIONS[(trenutno_stanje, ulazni_simbol)] = sljedece_stanje
-        return
-
-    @staticmethod
-    def format_print(input_str):
-        """Return formatted string to be printed on `stdout`."""
-        result = str()
-        length = len(input_str)
-
-        for i in range(length):
-            temp = str()
-            temp_len = len(input_str[i])
-
-            if temp_len == 0:
-                temp = "#"
-            else:
-                for j in range(temp_len):
-                    temp += str(input_str[i][j])
-                    if j < temp_len - 1:
-                        temp += ","
-
-            result += temp
-            if i < length - 1:
-                result += "|"
-
-        return result
+TRANSITIONS = {}
 
 
-def sim_automata(symbol, starting):
-    result = list()
-    current_states = list()
+def parse_input_data(input_line: str) -> list[list[str]]:
+    return [sequence.split(",") for sequence in input_line.split("|")]
 
-    for i in range(-1, len(symbol)):
-        next_states = []
-        temp = []
 
-        if i == -1:
-            next_states = []
-            temp = [starting]
+def parse_transitions(transition_lines: list[str]) -> None:
+    for line in transition_lines:
+        # Using a more descriptive regex variable name
+        match_result = re.match(r"(.*),(.*)->(.*)", line.strip())
+        if not match_result:
+            print(
+                f"Warning: Malformed transition line skipped: {line.strip()}",
+                file=sys.stderr,
+            )
+            continue
+
+        current_state, input_symbol, next_states_str = match_result.groups()
+
+        # If the destination is '#', it means no transition, so we skip it.
+        if next_states_str == "#":
+            continue
+
+        # Split next states and store them
+        next_states = next_states_str.split(",")
+        TRANSITIONS[(current_state, input_symbol)] = next_states
+
+
+def format_output(states_list: list[list[str]]) -> str:
+    formatted_sequences = []
+    for states_at_step in states_list:
+        if not states_at_step:
+            formatted_sequences.append("#")
         else:
-            for trenutno in current_states:
-                transition = TRANSITIONS.get((trenutno, symbol[i]), [])
-
-                for e in transition:
-                    if e not in next_states:
-                        next_states.append(e)
-                        epsilons = TRANSITIONS.get((e, "$"), [])
-
-                        for epsilon in epsilons:
-                            temp.append(epsilon)
-
-        while len(temp):
-            tmp = temp.pop()
-
-            if tmp not in next_states:
-                next_states.append(tmp)
-
-            for e in TRANSITIONS.get((tmp, "$"), []):
-                if e not in next_states:
-                    temp.append(e)
-
-        result.append(sorted(next_states))
-        current_states = next_states
-
-    return result
+            # Join states with commas, e.g., "q1,q2"
+            formatted_sequences.append(",".join(states_at_step))
+    # Join the formatted sequences with '|'
+    return "|".join(formatted_sequences)
 
 
-if __name__ == '__main__':
-    file = [x.strip() for x in stdin.readlines()]
+def get_epsilon_closure(states: set[str]) -> set[str]:
+    closure = set(states)  # Start with the initial states
+    stack = list(states)  # Use a stack for DFS-like traversal
 
-    INPUT_STRINGS = Utils.get_input_data(file[0])  # 1. redak, ulazni nizovi
-    ALL_STATES = file[1].split(",")  # 2. redak, skup stanja
-    SYMBOLS = file[2].split(",")  # 3. redak, skup simbola abecede
-    ACCEPTABLE_STATES = file[3].split(",")  # 4. redak, skup prihvatljivih stanja
-    STARTING_STATE = file[4]  # 5. redak, početno stanje
-    Utils.get_transitions(file[5:])  # funkcije prijelaza u automatu
+    while stack:
+        current_state = stack.pop()
+        # Get states reachable from current_state via epsilon transition
+        epsilon_reachable = TRANSITIONS.get((current_state, "$"), [])
+        for next_state in epsilon_reachable:
+            if next_state not in closure:
+                closure.add(next_state)
+                stack.append(next_state)
+    return closure
 
-    for string in INPUT_STRINGS:
-        to_print = sim_automata(string, STARTING_STATE)
-        print(Utils.format_print(to_print))
+
+def simulate_nfa(input_symbols: list[str], start_state: str) -> list[list[str]]:
+    # Initialize current_states with the epsilon closure of the start_state
+    current_states = get_epsilon_closure({start_state})
+    all_step_results = [sorted(list(current_states))]
+
+    for symbol in input_symbols:
+        next_possible_states = set()
+        for state in current_states:
+            # Get states reachable by consuming the symbol
+            direct_transitions = TRANSITIONS.get((state, symbol), [])
+            next_possible_states.update(direct_transitions)
+
+        # Apply epsilon closure to all newly reached states
+        current_states = get_epsilon_closure(next_possible_states)
+        all_step_results.append(sorted(list(current_states)))
+
+    return all_step_results
+
+
+if __name__ == "__main__":
+    # Read all lines from stdin
+    file_content = [line.strip() for line in sys.stdin.readlines()]
+
+    # Destructure the input lines for better readability
+    # This assumes exactly 6 parts to the input based on your original code.
+    try:
+        input_strings_raw = file_content[0]
+        all_states_raw = file_content[1]
+        symbols_raw = file_content[2]
+        acceptable_states_raw = file_content[3]
+        starting_state = file_content[4]
+        transition_lines = file_content[5:]
+    except IndexError:
+        print(
+            "Error: Incomplete input provided. Please check the input format.",
+            file=sys.stderr,
+        )
+        sys.exit(1)  # Exit with an error code
+
+    input_sequences = parse_input_data(input_strings_raw)
+    parse_transitions(transition_lines)
+
+    for input_sequence in input_sequences:
+        simulation_result = simulate_nfa(input_sequence, starting_state)
+        print(format_output(simulation_result))
