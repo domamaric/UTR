@@ -2,114 +2,103 @@ from collections import deque
 from re import match
 from sys import stdin
 
-from numpy import array
+
+def parse_input_data(input_str):
+    """Return formatted array of alphabet symbols."""
+    return [part.split(",") for part in input_str.split("|")]
 
 
-class Utils:
-    """
-    Helper class, used for formatted reading from standard input.
-    """
+def get_transitions(transition_lines):
+    """Return formatted `dict` of transition functions (delta)."""
+    """Return formatted `dict` of transition functions (delta)."""
+    transitions = {}
 
-    @staticmethod
-    def get_input_data(input_str):
-        """
-        Return formatted array of alphabet symbols.
-
-        `numpy.array` is used for storing input strings, since numpy arrays
-        tend to have shorter access time than builtin python lists.
-        """
-        tmp = array(input_str.split("|"))
-        return [array(tmp[i].split(",")) for i in range(len(tmp))]
-
-    @staticmethod
-    def get_transitions(input_str):
-        """Return formatted `dict` of transition functions (delta)."""
-        transitions = dict()
-        for x in input_str:
-            r = match("^(.+?),(.+?),(.+?)->(.+?),(.+?)$", x)
-            current = r.group(1)
-            input_symb = r.group(2)
-            stack_symb = r.group(3)
-            new_state = r.group(4)
-            stack_strings = r.group(5)
-            transitions[(current, input_symb, stack_symb)] = (
-                new_state, stack_strings)
-        return transitions
+    for line in transition_lines:
+        if match_result := match(r"^(.+?),(.+?),(.+?)->(.+?),(.+?)$", line):
+            current_state, input_symbol, stack_symbol, new_state, stack_string = (
+                match_result.groups()
+            )
+            transitions[(current_state, input_symbol, stack_symbol)] = (
+                new_state,
+                stack_string,
+            )
+    return transitions
 
 
-class Stack(deque):
-    """
-    A stack implementation using `deque` class from `collections` module.
-
-    In stack, a new element is added at one end and an element is removed from
-    that end only. `Deque` provides faster append and pop operations as
-    compared to list.
-    """
+class PushdownStack(deque):
+    """A stack implementation using `deque` for efficient append and pop operations."""
 
     def __init__(self):
-        """Initialize a `Stack` object."""
-        super().__init__(self)
+        """Initialize a `PushdownStack` object."""
+        super().__init__()
 
-    def __repr__(self):
-        """Return a string as representation of `Stack` class."""
-        return "$" if not self else "".join(self)[::-1]
+    def __repr__(self) -> str:
+        """Return a string representation of the stack."""
+        return "$" if not self else "".join(reversed(self))
 
-    def push(self, item):
-        """Push `item` in the stack."""
-        for s in item[::-1]:
-            if s != "$":
-                self.append(s)
+    def push(self, item: str) -> None:
+        """Push `item` onto the stack."""
+        for symbol in reversed(item):
+            if symbol != "$":
+                self.append(symbol)
             else:
                 break
 
-    def pop_left(self):
-        """Return the element from stack in LIFO order."""
+    def pop_left(self) -> str:
+        """Pop and return the top element from the stack."""
         return self.pop()
 
-    def is_empty(self):
-        """Return `True` if stack isn't empty."""
-        return False if self else True
+    def is_empty(self) -> bool:
+        """Return `True` if the stack is empty."""
+        return not bool(self)
 
 
-if __name__ == '__main__':
-    ulaz = [x.strip() for x in stdin.readlines()]
-
-    INPUT_STRINGS = array(Utils.get_input_data(ulaz[0]), dtype=object)  # Ulaz
-    ALL_STATES = ulaz[1].split(",")  # Skup stanja
-    SYMBOLS = ulaz[2].split(",")  # Skup ulaznih znakova
-    STACK_SYMBOLS = ulaz[3].split(",")  # Skup znakova stoga
-    ACCEPTABLE_STATES = ulaz[4].split(",")  # Skup prihvatljivih stanja
-    STARTING_STATE = ulaz[5]  # Početno stanje
-    STARTING_STACK = ulaz[6]  # Početni znak stoga
-    TRANSITIONS = Utils.get_transitions(ulaz[7:])  # Funkcije prijelaza
-
-    for string in INPUT_STRINGS:
-        stack = Stack()
+def simulate_pushdown_automaton(
+    input_strings,
+    all_states,
+    symbols,
+    stack_symbols,
+    acceptable_states,
+    starting_state,
+    starting_stack,
+    transitions,
+):
+    """Simulate the pushdown automaton for each input string."""
+    for string in input_strings:
+        stack = PushdownStack()
+        current_state = starting_state
+        current_stack_symbol = starting_stack
         fail = False
-
-        Q = STARTING_STATE
-        Z = STARTING_STACK
-        print("{}#{}|".format(Q, Z), end="")
+        print(f"{current_state}#{current_stack_symbol}|", end="")
 
         for symbol in string:
-
-            while TRANSITIONS.get((Q, "$", Z)) is not None:
-                (Q, Z) = TRANSITIONS.get((Q, "$", Z))
-                stack.push(Z)
-                print("{}#{}|".format(Q, stack), end="")
-                if not stack.is_empty():
-                    Z = stack.pop_left()
-                else:
+            while (
+                transitions.get((current_state, "$", current_stack_symbol)) is not None
+            ):
+                current_state, stack_string = transitions[
+                    (current_state, "$", current_stack_symbol)
+                ]
+                stack.push(stack_string)
+                print(f"{current_state}#{stack}|", end="")
+                current_stack_symbol = (
+                    stack.pop_left() if not stack.is_empty() else None
+                )
+                if current_stack_symbol is None:
                     fail = True
                     break
 
-            if not fail and TRANSITIONS.get((Q, symbol, Z)) is not None:
-                (Q, Z) = TRANSITIONS.get((Q, symbol, Z))
-                stack.push(Z)
-                print("{}#{}|".format(Q, stack), end="")
-                if not stack.is_empty():
-                    Z = stack.pop_left()
-                else:
+            if not fail and (
+                transition := transitions.get(
+                    (current_state, symbol, current_stack_symbol)
+                )
+            ):
+                current_state, stack_string = transition
+                stack.push(stack_string)
+                print(f"{current_state}#{stack}|", end="")
+                current_stack_symbol = (
+                    stack.pop_left() if not stack.is_empty() else None
+                )
+                if current_stack_symbol is None:
                     fail = True
             else:
                 fail = True
@@ -117,19 +106,38 @@ if __name__ == '__main__':
             if fail:
                 print("fail|0")
                 break
-            else:
-                pass
 
-        if fail:
-            pass
-        else:
-            while TRANSITIONS.get(
-                    (Q, "$", Z)) is not None and Q not in ACCEPTABLE_STATES:
-                (Q, Z) = TRANSITIONS.get((Q, "$", Z))
-                stack.push(Z)
-                print("{}#{}|".format(Q, stack), end="")
-                if not stack.is_empty():
-                    Z = stack.pop_left()
-                else:
+        if not fail:
+            while (
+                transitions.get((current_state, "$", current_stack_symbol))
+                and current_state not in acceptable_states
+            ):
+                current_state, stack_string = transitions[
+                    (current_state, "$", current_stack_symbol)
+                ]
+                stack.push(stack_string)
+                print(f"{current_state}#{stack}|", end="")
+                current_stack_symbol = (
+                    stack.pop_left() if not stack.is_empty() else None
+                )
+                if current_stack_symbol is None:
                     break
-            print(1 if Q in ACCEPTABLE_STATES else 0)
+            print(1 if current_state in acceptable_states else 0)
+
+
+if __name__ == "__main__":
+    input_lines = [line.strip() for line in stdin.readlines()]
+
+    INPUT_STRINGS = parse_input_data(input_lines[0])
+    ALL_STATES = input_lines[1].split(",")
+    SYMBOLS = input_lines[2].split(",")
+    STACK_SYMBOLS = input_lines[3].split(",")
+    ACCEPTABLE_STATES = input_lines[4].split(",")
+    STARTING_STATE = input_lines[5]
+    STARTING_STACK = input_lines[6]
+    TRANSITIONS = get_transitions(input_lines[7:])
+
+    simulate_pushdown_automaton(
+        INPUT_STRINGS, ALL_STATES, SYMBOLS, STACK_SYMBOLS,
+        ACCEPTABLE_STATES, STARTING_STATE, STARTING_STACK, TRANSITIONS
+    )
