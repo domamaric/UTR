@@ -10,7 +10,6 @@ def parse_input_data(input_str):
 
 def get_transitions(transition_lines):
     """Return formatted `dict` of transition functions (delta)."""
-    """Return formatted `dict` of transition functions (delta)."""
     transitions = {}
 
     for line in transition_lines:
@@ -138,6 +137,12 @@ if __name__ == "__main__":
     TRANSITIONS = get_transitions(input_lines[7:])
 
     simulate_pushdown_automaton(
-        INPUT_STRINGS, ALL_STATES, SYMBOLS, STACK_SYMBOLS,
-        ACCEPTABLE_STATES, STARTING_STATE, STARTING_STACK, TRANSITIONS
+        INPUT_STRINGS,
+        ALL_STATES,
+        SYMBOLS,
+        STACK_SYMBOLS,
+        ACCEPTABLE_STATES,
+        STARTING_STATE,
+        STARTING_STACK,
+        TRANSITIONS,
     )
